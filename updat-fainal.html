@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Browser Audio Visualizer</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            min-height: 100vh;
+            background-color: #1a1a1a;
+            color: #f3f3f3;
+            margin: 0;
+            overflow: hidden;
+        }
+        .container {
+            width: 90%;
+            max-width: 800px;
+            text-align: center;
+            background-color: #2a2a2a;
+            padding: 2rem;
+            border-radius: 1rem;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+        }
+        svg {
+            width: 100%;
+            height: 300px;
+            border-bottom: 2px solid #ea923c;
+            background-color: #111;
+            border-radius: 0.5rem;
+            margin-bottom: 1rem;
+        }
+        .wave-line {
+            transform-origin: 50% 100%;
+            transition: transform 0.05s linear;
+            will-change: transform;
+        }
+        .start-button {
+            background-color: #ea923c;
+            color: #1a1a1a;
+            font-weight: bold;
+            padding: 0.75rem 1.5rem;
+            border-radius: 0.5rem;
+            cursor: pointer;
+            transition: background-color 0.3s ease, transform 0.2s ease;
+            margin-bottom: 1rem;
+            border: none;
+        }
+        .start-button:hover {
+            background-color: #f0a55a;
+            transform: scale(1.05);
+        }
+        .start-button:disabled {
+            background-color: #555;
+            cursor: not-allowed;
+            transform: none;
+        }
+        #instructions {
+            margin-top: 1rem;
+            font-size: 0.9rem;
+            color: #aaa;
+            line-height: 1.5;
+        }
+        /* Customization Controls Styling */
+        .controls-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 1.5rem;
+            margin-bottom: 1rem;
+            flex-wrap: wrap;
+        }
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .control-group label {
+            font-size: 0.8rem;
+            color: #ccc;
+        }
+        .control-group input[type="color"] {
+            -webkit-appearance: none;
+            width: 40px;
+            height: 40px;
+            border: none;
+            cursor: pointer;
+            background: none;
+            border-radius: 50%;
+            padding: 0;
+            overflow: hidden;
+        }
+        .control-group input[type="color"]::-webkit-color-swatch-wrapper {
+            padding: 0;
+        }
+        .control-group input[type="color"]::-webkit-color-swatch {
+            border: 2px solid #555;
+            border-radius: 50%;
+        }
+        .style-btn {
+            background-color: #444;
+            color: #eee;
+            border: 1px solid #666;
+            padding: 0.5rem 1rem;
+            border-radius: 0.5rem;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        .style-btn:hover {
+            background-color: #555;
+        }
+        .style-btn.active {
+            background-color: #ea923c;
+            color: #1a1a1a;
+            border-color: #ea923c;
+        }
+    </style>
+</head>
+<body class="bg-gray-900 flex items-center justify-center h-screen">
+
+    <div class="container">
+        <h1 class="text-3xl font-bold mb-2 text-white">Browser Audio Visualizer</h1>
+        <p class="mb-4 text-gray-400"></p>
+        
+        <button id="startButton" class="start-button">Start Visualization</button>
+
+        <svg xmlns="http://www.w3.org/2000/svg" height="300" viewBox="0 0 288 300" preserveAspectRatio="none">
+            <defs>
+                <linearGradient id="grad" x1="0" x2="0" y1="0%" y2="100%">
+                    <stop id="gradStart" offset="0%" stop-color="#ea923c"/>
+                    <stop id="gradEnd" offset="100%" stop-color="#f0c24a"/>
+                </linearGradient>
+            </defs>
+            <g id="bars-container" fill="url(#grad)"></g>
+        </svg>
+
+        <!-- Customization Controls -->
+        <div class="controls-container">
+            <div class="control-group">
+                <label for="colorStart">Top Color</label>
+                <input type="color" id="colorStart" value="#ea923c">
+            </div>
+            <div class="control-group">
+                <label for="colorEnd">Bottom Color</label>
+                <input type="color" id="colorEnd" value="#f0c24a">
+            </div>
+            <div class="control-group">
+                <label>Bar Style</label>
+                <div class="flex gap-2">
+                    <button class="style-btn active" data-style="sharp">Sharp</button>
+                    <button class="style-btn" data-style="rounded">Rounded</button>
+                </div>
+            </div>
+        </div>
+
+        <p id="instructions">
+            ভিজ্যুয়ালাইজেশন শুরু করতে বোতামে ক্লিক করুন এবং আপনার স্ক্রিন/ট্যাব অডিও শেয়ার করার অনুমতি দিন।
+        </p>
+    </div>
+
+    <script>
+        const startButton = document.getElementById('startButton');
+        const instructions = document.getElementById('instructions');
+        const barsContainer = document.getElementById('bars-container');
+        const colorStartPicker = document.getElementById('colorStart');
+        const colorEndPicker = document.getElementById('colorEnd');
+        const gradStart = document.getElementById('gradStart');
+        const gradEnd = document.getElementById('gradEnd');
+        const styleButtons = document.querySelectorAll('.style-btn');
+
+        let animationFrameId = null;
+        let audioContext = null;
+        let bars = [];
+        let currentBarStyle = 'sharp';
+
+        function createBars() {
+            barsContainer.innerHTML = '';
+            const barCount = currentBarStyle === 'sharp' ? 192 : 96;
+            const svgHeight = 300;
+            const maxVisualWidth = 288;
+            const barWidth = currentBarStyle === 'sharp' ? 1 : 2;
+            const spacing = currentBarStyle === 'sharp' ? 0.5 : 1;
+            const totalWidth = barCount * (barWidth + spacing) - spacing;
+            const startX = (maxVisualWidth - totalWidth) / 2;
+            const baseBarHeight = 2;
+
+            for (let i = 0; i < barCount; i++) {
+                const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+                const x = startX + i * (barWidth + spacing);
+                rect.setAttribute('class', 'wave-line');
+                rect.setAttribute('x', x);
+                rect.setAttribute('y', svgHeight - baseBarHeight);
+                rect.setAttribute('width', barWidth);
+                rect.setAttribute('height', baseBarHeight);
+                if (currentBarStyle === 'rounded') {
+                    rect.setAttribute('rx', barWidth / 2);
+                    rect.setAttribute('ry', barWidth / 2);
+                }
+                barsContainer.appendChild(rect);
+            }
+            bars = document.querySelectorAll('.wave-line');
+        }
+
+        colorStartPicker.addEventListener('input', (e) => gradStart.setAttribute('stop-color', e.target.value));
+        colorEndPicker.addEventListener('input', (e) => gradEnd.setAttribute('stop-color', e.target.value));
+
+        styleButtons.forEach(button => {
+            button.addEventListener('click', () => {
+                styleButtons.forEach(btn => btn.classList.remove('active'));
+                button.classList.add('active');
+                currentBarStyle = button.dataset.style;
+                createBars();
+            });
+        });
+
+        createBars();
+
+        function stopVisualization() {
+            if (animationFrameId) {
+                cancelAnimationFrame(animationFrameId);
+                animationFrameId = null;
+            }
+            if (audioContext && audioContext.state !== 'closed') {
+                audioContext.close();
+            }
+            bars.forEach(bar => { bar.style.transform = 'scaleY(1)'; });
+            startButton.disabled = false;
+            instructions.innerHTML = 'শেয়ারিং বন্ধ হয়ে গেছে। আবার শুরু করতে বোতামে ক্লিক করুন।';
+        }
+
+        startButton.addEventListener('click', async () => {
+            try {
+                const stream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
+
+                // **IMPROVEMENT**: Check if an audio track was actually shared.
+                if (stream.getAudioTracks().length === 0) {
+                    // Stop the silent video track to end the capture session.
+                    stream.getVideoTracks().forEach(track => track.stop());
+                    // Provide specific instructions to the user.
+                    instructions.innerHTML = 'অডিও শেয়ার করা হয়নি। অনুগ্রহ করে আবার চেষ্টা করুন এবং<br><b>"Share tab audio"</b> অপশনটি নির্বাচন করুন।';
+                    return;
+                }
+
+                startButton.disabled = true;
+                instructions.textContent = 'অডিও চলছে... ভিজ্যুয়ালাইজার সক্রিয়।';
+
+                audioContext = new AudioContext();
+                const source = audioContext.createMediaStreamSource(stream);
+                const analyser = audioContext.createAnalyser();
+                
+                // **IMPROVEMENT**: Use the 'onended' event to know when sharing stops.
+                stream.getTracks().forEach(track => track.onended = stopVisualization);
+
+                analyser.fftSize = 512;
+                const bufferLength = analyser.frequencyBinCount;
+                const dataArray = new Uint8Array(bufferLength);
+                source.connect(analyser);
+
+                function draw() {
+                    animationFrameId = requestAnimationFrame(draw);
+                    analyser.getByteFrequencyData(dataArray);
+                    
+                    bars.forEach((bar, i) => {
+                        const dataIndex = Math.floor(bufferLength * (i / bars.length));
+                        const frequencyValue = dataArray[dataIndex];
+                        const minScale = 1;
+                        const maxScale = 150; 
+                        const scale = minScale + (Math.pow(frequencyValue / 255, 2)) * (maxScale - minScale);
+                        bar.style.transform = `scaleY(${scale})`;
+                    });
+                }
+                draw();
+
+            } catch (err) {
+                // This handles cases where the user denies permission.
+                console.error("Error capturing audio:", err);
+                instructions.textContent = 'অডিও ক্যাপচার করতে ব্যর্থ। অনুগ্রহ করে অনুমতি দিন এবং আবার চেষ্টা করুন।';
+                startButton.disabled = false;
+            }
+        });
+    </script>
+</body>
+</html>
+
