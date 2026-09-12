@@ -161,7 +161,7 @@
         </div>
 
         <p id="instructions">
-            ভিজ্যুয়ালাইজেশন শুরু করতে বোতামে ক্লিক করুন এবং আপনার স্ক্রিন/ট্যাব অডিও শেয়ার করার অনুমতি দিন।
+           Click the button to start the visualization and allow your screen/tab audio to be shared.
         </p>
     </div>
 
@@ -232,7 +232,7 @@
             }
             bars.forEach(bar => { bar.style.transform = 'scaleY(1)'; });
             startButton.disabled = false;
-            instructions.innerHTML = 'শেয়ারিং বন্ধ হয়ে গেছে। আবার শুরু করতে বোতামে ক্লিক করুন।';
+            instructions.innerHTML = 'Sharing has stopped. Click the button to start again.';
         }
 
         startButton.addEventListener('click', async () => {
@@ -244,12 +244,12 @@
                     // Stop the silent video track to end the capture session.
                     stream.getVideoTracks().forEach(track => track.stop());
                     // Provide specific instructions to the user.
-                    instructions.innerHTML = 'অডিও শেয়ার করা হয়নি। অনুগ্রহ করে আবার চেষ্টা করুন এবং<br><b>"Share tab audio"</b> অপশনটি নির্বাচন করুন।';
+                    instructions.innerHTML = 'The audio wasn t shared Please try again and <br><b>"Share tab audio"</b> Select the option.';
                     return;
                 }
 
                 startButton.disabled = true;
-                instructions.textContent = 'অডিও চলছে... ভিজ্যুয়ালাইজার সক্রিয়।';
+                instructions.textContent = 'Audio is playing... visualizer is on.';
 
                 audioContext = new AudioContext();
                 const source = audioContext.createMediaStreamSource(stream);
@@ -281,7 +281,7 @@
             } catch (err) {
                 // This handles cases where the user denies permission.
                 console.error("Error capturing audio:", err);
-                instructions.textContent = 'অডিও ক্যাপচার করতে ব্যর্থ। অনুগ্রহ করে অনুমতি দিন এবং আবার চেষ্টা করুন।';
+                instructions.textContent = 'Failed to capture audio. Please allow permission and try again.';
                 startButton.disabled = false;
             }
         });
